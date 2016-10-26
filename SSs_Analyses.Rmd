@@ -1,0 +1,738 @@
+---
+title: "Sunset-Sunrise Survey"
+author: "Jeremy Froidevaux"
+date: "17 October 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+dB<-read.table("C:/Users/Jeremy/Documents/BCT internship/R_SSs.txt",header=TRUE,dec=".")
+obs<-read.table("C:/Users/Jeremy/Documents/BCT internship/Obs_SSs.txt",header=TRUE,sep="\t",dec=".")
+
+```
+</p>
+
+## <span style="color:darkblue">Introduction</span>
+</p>
+
+This report aims to highlight the main findings of the new "Sunset-Sunrise survey" version launched in 2016. 
+It is declined in three different parts representating the different analyses undertaken. 
+The first part will focus on the general information regarding the surveys and volunteers themselves. Then, the summary of the main observations made by the volunteers will be presented. Finally, the third part will be dedicated to the comparison between the Sunset-Sunrise survey version 2016 and the previous editions.
+<p>&nbsp; </p>
+
+## <span style="color:darkblue">Part 1: Surveys and volunteers</span>
+
+</p>
+### *1.1. Key statistics*
+
+```{r include=FALSE}
+#Number of observations
+S1<-sum(obs$no_of_obs)
+#Number of surveys
+S2<-sum(obs$no_of_surveys)
+#Number of sites
+S3<-sum(obs$no_of_sites)
+#Number of surveyors
+S4<-sum(obs$maxno_of_surveyors)
+#Number of sunset and sunrise records
+s5<-sum(dB$sunset_or_sunrise == 'Sunset', na.rm=TRUE)
+s6<-sum(dB$sunset_or_sunrise == 'Sunrise', na.rm=TRUE)
+
+plot(dB$date,dB$obs)
+
+#Results
+c(S1,S2,S3,S4,s5,s6)
+```
+
+</p>
+####Headlines
+* More than 100 volunteers were involved in the new edition of the Sunset-Sunrise survey launched in 2016. 
+* Volunteers conducted 132 surveys within 133 sites distributed in the UK and the British channel islands.   
+
+</p>
+####Detailed information
+* Number of **observations** made: 256 </p>
+* Number of **surveys** undertaken: 132 (122 at sunset, 10 at sunrise) </p>
+* Number of **sites** surveyed: 133 </p>
+* Number of **volunteers** involved: 174 </p>
+* Number of **lead volunteers** involved: 102 </p>
+* 3 lead volunteers conducted several surveys at the same site </p>
+* 4 lead volunteers visited different sites during the same survey
+
+</p>
+####Definition
+1. The number of observations corresponds to each individual record made by the volunteers. 
+Several records might be made during one single survey. </p>
+2. The number of surveys represents the number of nights surveyed by each lead volunteer. Thus, each individual survey has a unique dateID associated to a volunteerID. </p>
+3. The number of sites corresponds to the number of locations where the surveys have been tacking place. The same site might be visited during different surveys. Similarly, different sites might be visited during the same survey. </p>
+4. A lead volunteer is a person who entered the data into the online system. A lead volunteer might be accompanied by other volunteers during the survey(s). 
+
+</p>
+### *1.2. Geographical distribution of records*
+
+```{r include=FALSE, fig.width=8,fig.height=10}
+library(ggplot2)
+library(rgdal)
+library(scales)
+library(ggmap)
+library(dplyr)
+library(Cairo)
+library(maps)
+library(mapdata)
+library(grid)
+library(maptools)
+library(plyr)
+library(plotly)
+library(geosphere)
+library(data.table)
+library(plotrix)
+
+
+create_scale_bar <- function(lon,lat,distance_lon,distance_lat,distance_legend, dist_units = "km"){
+    # First rectangle
+    bottom_right <- gcDestination(lon = lon, lat = lat, bearing = 90, dist = distance_lon, dist.units = dist_units, model = "WGS84")
+    
+    topLeft <- gcDestination(lon = lon, lat = lat, bearing = 0, dist = distance_lat, dist.units = dist_units, model = "WGS84")
+    rectangle <- cbind(lon=c(lon, lon, bottom_right[1,"long"], bottom_right[1,"long"], lon),
+    lat = c(lat, topLeft[1,"lat"], topLeft[1,"lat"],lat, lat))
+    rectangle <- data.frame(rectangle, stringsAsFactors = FALSE)
+    
+    # Second rectangle t right of the first rectangle
+    bottom_right2 <- gcDestination(lon = lon, lat = lat, bearing = 90, dist = distance_lon*2, dist.units = dist_units, model = "WGS84")
+    rectangle2 <- cbind(lon = c(bottom_right[1,"long"], bottom_right[1,"long"], bottom_right2[1,"long"], bottom_right2[1,"long"], bottom_right[1,"long"]),
+    lat=c(lat, topLeft[1,"lat"], topLeft[1,"lat"], lat, lat))
+    rectangle2 <- data.frame(rectangle2, stringsAsFactors = FALSE)
+    
+    # Now let's deal with the text
+    on_top <- gcDestination(lon = lon, lat = lat, bearing = 0, dist = distance_legend, dist.units = dist_units, model = "WGS84")
+    on_top2 <- on_top3 <- on_top
+    on_top2[1,"long"] <- bottom_right[1,"long"]
+    on_top3[1,"long"] <- bottom_right2[1,"long"]
+    
+    legend <- rbind(on_top, on_top2, on_top3)
+    legend <- data.frame(cbind(legend, text = c(0, distance_lon, distance_lon*2)), stringsAsFactors = FALSE, row.names = NULL)
+    return(list(rectangle = rectangle, rectangle2 = rectangle2, legend = legend))
+}
+
+create_orientation_arrow <- function(scale_bar, length, distance = 1, dist_units = "km"){
+    lon <- scale_bar$rectangle2[1,1]
+    lat <- scale_bar$rectangle2[1,2]
+    
+    # Bottom point of the arrow
+    beg_point <- gcDestination(lon = lon, lat = lat, bearing = 0, dist = distance, dist.units = dist_units, model = "WGS84")
+    lon <- beg_point[1,"long"]
+    lat <- beg_point[1,"lat"]
+    
+    # Let us create the endpoint
+    on_top <- gcDestination(lon = lon, lat = lat, bearing = 0, dist = length, dist.units = dist_units, model = "WGS84")
+    
+    left_arrow <- gcDestination(lon = on_top[1,"long"], lat = on_top[1,"lat"], bearing = 225, dist = length/5, dist.units = dist_units, model = "WGS84")
+    
+    right_arrow <- gcDestination(lon = on_top[1,"long"], lat = on_top[1,"lat"], bearing = 135, dist = length/5, dist.units = dist_units, model = "WGS84")
+    
+    res <- rbind(
+            cbind(x = lon, y = lat, xend = on_top[1,"long"], yend = on_top[1,"lat"]),
+            cbind(x = left_arrow[1,"long"], y = left_arrow[1,"lat"], xend = on_top[1,"long"], yend = on_top[1,"lat"]),
+            cbind(x = right_arrow[1,"long"], y = right_arrow[1,"lat"], xend = on_top[1,"long"], yend = on_top[1,"lat"]))
+    
+    res <- as.data.frame(res, stringsAsFactors = FALSE)
+    
+    # Coordinates from which "N" will be plotted
+    coords_n <- cbind(x = lon, y = (lat + on_top[1,"lat"])/2)
+    
+    return(list(res = res, coords_n = coords_n))
+}
+
+scale_bar <- function(lon, lat, distance_lon, distance_lat, distance_legend, dist_unit = "km", rec_fill = "white", rec_colour = "black", rec2_fill = "black", rec2_colour = "black", legend_colour = "black", legend_size = 3, orientation = TRUE, arrow_length = 500, arrow_distance = 300, arrow_north_size = 6){
+    the_scale_bar <- create_scale_bar(lon = lon, lat = lat, distance_lon = distance_lon, distance_lat = distance_lat, distance_legend = distance_legend, dist_unit = dist_unit)
+    # First rectangle
+    rectangle1 <- geom_polygon(data = the_scale_bar$rectangle, aes(x = lon, y = lat), fill = rec_fill, colour = rec_colour)
+    
+    # Second rectangle
+    rectangle2 <- geom_polygon(data = the_scale_bar$rectangle2, aes(x = lon, y = lat), fill = rec2_fill, colour = rec2_colour)
+    
+    # Legend
+    scale_bar_legend <- annotate("text", label = paste(the_scale_bar$legend[,"text"], dist_unit, sep=""), x = the_scale_bar$legend[,"long"], y = the_scale_bar$legend[,"lat"], size = legend_size, colour = legend_colour)
+    
+    res <- list(rectangle1, rectangle2, scale_bar_legend)
+    
+    if(orientation){# Add an arrow pointing North
+        coords_arrow <- create_orientation_arrow(scale_bar = the_scale_bar, length = arrow_length, distance = arrow_distance, dist_unit = dist_unit)
+        arrow <- list(geom_segment(data = coords_arrow$res, aes(x = x, y = y, xend = xend, yend = yend)), annotate("text", label = "N", x = coords_arrow$coords_n[1,"x"], y = coords_arrow$coords_n[1,"y"], size = arrow_north_size, colour = "black"))
+        res <- c(res, arrow)
+    }
+    return(res)
+}
+
+
+UKmap<-readRDS("C:/Users/Jeremy/Documents/BCT internship/GBR_adm0.rds")
+Imap<-readRDS("C:/Users/Jeremy/Documents/BCT internship/IRL_adm0.rds")
+Gmap<-readRDS("C:/Users/Jeremy/Documents/BCT internship/GGY_adm0.rds")
+Jmap<-readRDS("C:/Users/Jeremy/Documents/BCT internship/JEY_adm0.rds")
+
+```
+
+```{r include=FALSE}
+theme_jack <- function (base_size = 12, base_family = "") {
+  theme_gray(base_size = base_size, base_family = base_family) %+replace% 
+    theme(
+      axis.text = element_text(colour = "black"),
+      axis.title.x = element_text(colour = "black", size=rel(1.5)),
+      axis.title.y = element_text(colour = "black", size=rel(1.5),angle=90,margin=margin(0,10,0,0)),
+      panel.background = element_rect(fill="white"),
+      panel.grid.minor.y =  element_blank(),
+      panel.grid.minor.x =  element_blank(),
+      panel.grid.major = element_blank(),
+      panel.border = element_blank(), 
+      plot.background = element_blank()
+    )   
+}
+
+theme_set(theme_jack())
+
+```
+
+####Where the surveys have been taking place?
+
+```{r echo=FALSE, fig.width=8,fig.height=10,message=FALSE}
+
+P0<-ggplot()+geom_polygon(data=UKmap,aes(x=long,y=lat,group=group),fill="grey10",color="black")+coord_map()
+P1<-P0+geom_polygon(data=Imap,aes(x=long,y=lat,group=group),fill="white",color="black")
+P2<-P1+geom_polygon(data=Gmap,aes(x=long,y=lat,group=group),fill="grey10",color="black")
+P3<-P2+geom_polygon(data=Jmap,aes(x=long,y=lat,group=group),fill="grey10",color="black")
+P4<-P3+geom_point(data=dB,aes(x=X,y=Y),color="darkorange",fill="red")
+P5<- P4 + scale_bar(lon = -10.6, lat = 49.5, 
+                         distance_lon = 100, distance_lat = 20, 
+                         distance_legend = 40, dist_unit = "km", 
+                         arrow_length = 100, arrow_distance = 60, arrow_north_size = 6)
+
+
+
+P6<-P5 + theme(panel.grid.minor = element_line(colour = NA), panel.grid.minor = element_line(colour = NA),
+             panel.background = element_rect(fill = NA, colour = NA), axis.text.x = element_blank(),
+             axis.text.y = element_blank(), axis.ticks.x = element_blank(),
+             axis.ticks.y = element_blank(), axis.title = element_blank(),
+             rect = element_blank(), 
+             plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines"))
+P6
+
+
+```
+</p>
+**Figure 1.** Location of the sites surveyed by volunteers both in the UK and the British channel islands.
+
+<p>&nbsp; </p>
+####Where the volunteers are from?
+
+```{r echo=FALSE, fig.width=8,fig.height=10,message=FALSE,warning=FALSE}
+
+P0<-ggplot()+geom_polygon(data=UKmap,aes(x=long,y=lat,group=group),fill="grey10",color="black")+coord_map()
+P1<-P0+geom_polygon(data=Imap,aes(x=long,y=lat,group=group),fill="white",color="black")
+P2<-P1+geom_polygon(data=Gmap,aes(x=long,y=lat,group=group),fill="grey10",color="black")
+P3<-P2+geom_polygon(data=Jmap,aes(x=long,y=lat,group=group),fill="grey10",color="black")
+P4<-P3+geom_point(data=obs,aes(x=X,y=Y),color="purple",fill="darkblue")
+P5<- P4 + scale_bar(lon = -10.6, lat = 49.5, 
+                         distance_lon = 100, distance_lat = 20, 
+                         distance_legend = 40, dist_unit = "km", 
+                         arrow_length = 100, arrow_distance = 60, arrow_north_size = 6)
+
+
+
+P6<-P5 + theme(panel.grid.minor = element_line(colour = NA), panel.grid.minor = element_line(colour = NA),
+             panel.background = element_rect(fill = NA, colour = NA), axis.text.x = element_blank(),
+             axis.text.y = element_blank(), axis.ticks.x = element_blank(),
+             axis.ticks.y = element_blank(), axis.title = element_blank(),
+             rect = element_blank(), 
+             plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines"))
+P6
+
+
+```
+</p>
+**Figure 2.** Location of the lead volunteer addresses. </p>
+*(The postcode of the lead volunteers were used to produce the map)*
+
+<p>&nbsp; </p>
+```{r include=FALSE}
+dt<-read.table("C:/Users/Jeremy/Documents/BCT internship/distance.txt",header=TRUE,sep="\t",dec=".")
+setDT(dt)
+dt[,distance_hav := distHaversine(matrix(c(X1,Y1),ncol=2),matrix(c(X2,Y2),ncol=2))]
+av<-mean(dt$distance_hav)/1000
+se<-std.error(dt$distance)
+med<-median(dt$distance_hav)/1000
+d1<-ggplot(dt,aes(distance_hav/1000))+geom_histogram()+labs(x="Distance (in km)")
+
+#Remove dara greater than 85th percentile in the data frame. 
+dist85<-dt[dt$distance_hav < quantile(dt$distance_hav, 0.85), ]
+d2<-ggplot(dist85,aes(distance_hav/1000))+geom_histogram()+labs(x="Distance (in km)")
+length(dt$distance_hav[dt$distance_hav < 251])
+
+```
+
+```{r echo=FALSE,message=FALSE, warning=FALSE}
+d1
+d2
+```
+<p> 
+**Figure 3.** Histogram of the frequency distribution of the shortest distance between the volunteer adresses and the associated sampling sites.
+
+* In average, the sampling sites were loctaed 16.9 km (i.e. 10.5 miles) away from the lead volunteer adresses.
+
+</p> 
+###*1.3. Habitats surveyed: urban vs rural areas*
+</p>
+####Headlines
+* Surveys were mainly conducted in urban areas and in farmland (92.1%). </p>
+* More than half of the sites surveyed by volunteers were located in urban area. </p>
+* Farmland represents the second main habitat surveyed by volunteers. 
+
+```{r include=FALSE}
+hab<-read.table("C:/Users/Jeremy/Documents/BCT internship/habitat.txt",header=TRUE,dec=".")
+
+ds <- data.frame(labels = hab$Habitat,
+                 values= hab$Number_of_sites)
+p9<-plot_ly(labels = ds$labels, values = ds$values, type = "pie")
+
+p9<- layout(p9,
+            paper_bgcolor="rgb(255,255,255)",
+            plot_bgcolor="rgb(255,255,255)",
+            legend = list(font = list(color = "black"),
+                          bgcolor = "transparent"),
+            autosize = T,
+            xaxis = list(
+              color = "transparent"
+            ),
+            yaxis = list(
+              color = "transparent"
+            )
+)
+```
+
+```{r echo=FALSE,always_allow_html: yes}
+p9
+
+```
+</p>
+**Figure 4.** Habitats surveyed by volunteers in 2016.</p>
+
+<p>&nbsp; </p>
+####Method
+I used ArcGIS Desktop v10 (ESRI, Redlands, CA) to (i) map the location of the sites surveyed and (ii) extract the Land Cover Map 2007 (LCM2007; raster file). I used the function "Extract values to Points" (Spatial analysis) to attribute the value of the raster cell to the correspond point (i.e. site). Then, I reclassified the 23 LCM2007 classes into 5 classes: Woodland (classes 1 & 2) / Grassland (classes 3 to 14) / Water (classes 15 & 16)/ Coast (clasess 17 to 21) / Urban (classes 22 & 23). 
+
+</p>
+###*1.4. Number of surveys carried out by volunteers*
+####Lead volunteers
+
+```{r echo=FALSE}
+Q<-ggplot(data=obs,aes(x=no_of_surveys,y=obs))+geom_bar(stat="identity",fill="darkblue")
+Q1<-Q+labs(x="Number of surveys",y="Number of volunteers")+ylim(c(0,100))
+Q2<-Q1+annotate("text",x=1,y=88,label="85")
+Q3<-Q2+annotate("text",x=2,y=12,label="9")
+Q4<-Q3+annotate("text",x=3,y=8,label="5")
+Q5<-Q4+annotate("text",x=4,y=4,label="1")
+Q6<-Q5+annotate("text",x=5,y=5,label="2")
+Q6
+
+```
+</p>
+**Figure 5.** Number of surveys carried out by lead volunteers.</p>
+* Most of the volunteers undertook one survey only. </p>
+* Interestingly, 8 lead volunteers undertook more than 2 surveys during the summer. 
+
+<p>&nbsp; </p>
+####All volunteers
+
+```{r echo=FALSE}
+Q<-ggplot(data=obs,aes(x=no_of_surveys,y=maxno_of_surveyors))+geom_bar(stat="identity",fill="darkblue")
+Q1<-Q+labs(x="Number of surveys",y="Number of volunteers")+ylim(c(0,150))
+Q2<-Q1+annotate("text",x=1,y=142,label="138")
+Q3<-Q2+annotate("text",x=2,y=20,label="16")
+Q4<-Q3+annotate("text",x=3,y=20,label="16")
+Q5<-Q4+annotate("text",x=4,y=5,label="1")
+Q6<-Q5+annotate("text",x=5,y=7,label="3")
+Q6
+```
+
+</p>
+**Figure 6.** Number of surveys carried out by all volunteers.</p>
+* As shown previously, most of the volunteers undertook one survey only.
+<p>&nbsp; </p>
+
+###*1.5. Seasonal variation in observation numbers*
+
+```{r echo=FALSE}
+date<-read.table("C:/Users/Jeremy/Documents/BCT internship/date.txt",header=TRUE,dec=".")
+date$month <- factor(date$month,levels = c("May" ,"June","July","August","September"),ordered = TRUE)
+ggplot(date, aes(x=month, y=count)) + geom_boxplot()+labs(x=" ",y="Total number of observations")+expand_limits(x = 0, y = 0)
+```
+</p>
+**Figure 7.** Total number of observations made by volunteers according to the month in which the surveys have been taking place. </p>
+
+* Altough the protocol specifies to undertake the survey anytime in June, July or August, some volunteers conducted the surveys in May and September as well.
+
+<p>&nbsp; </p>
+```{r echo=FALSE}
+date2<-read.table("C:/Users/Jeremy/Documents/BCT internship/date2.txt",header=TRUE,dec=".")
+date2$month <- factor(date2$month,levels = c("June","July","August"),ordered = TRUE)
+p<-ggplot(date2, aes(x=month, y=count)) + geom_boxplot()+labs(x=" ",y="Number of observations per survey")+expand_limits(y = 0)
+p
+
+ylim1 <-boxplot.stats(date2$count)$stats[c(1,5)]
+p1<-p+coord_cartesian(ylim=ylim1*1.05)
+p1
+```
+</p>
+**Figure 8.** Number of observations per survey made by volunteers according to the month in which the surveys have been taking place. </p>
+*(May and September were excluded from the analysis as few surveys have been taking place)* </p>
+* August was the month when volunteers made the lowest number of observations during a survey
+
+<p>&nbsp; </p>
+## <span style="color:darkblue">Part 2. Analyses of the observations </span>
+</p>
+
+### *2.1. Key statistics*
+* Bats were encountered in 94% of the surveys </p>
+* Volunteers made 156 observations of bats in 2016 </p>
+* 9 bat species were identified
+
+</p>
+###*2.2. Bat species encountered during the surveys*
+
+```{r include=FALSE}
+# Pie Chart with Percentages
+brec<-read.table("C:/Users/Jeremy/Documents/BCT internship/batrec.txt",,quote="",sep="\t",header=TRUE,dec=".")
+brec2<-read.table("C:/Users/Jeremy/Documents/BCT internship/batrec2.txt",header=TRUE,dec=".")
+library(plotly)
+
+ds <- data.frame(labels = brec2$bat_species,
+                 values= brec2$count)
+p2<-plot_ly(labels = ds$labels, values = ds$values, type = "pie")
+
+p2<- layout(p2,
+            paper_bgcolor="rgb(255,255,255)",
+            plot_bgcolor="rgb(255,255,255)",
+            legend = list(font = list(color = "black"),
+                          bgcolor = "transparent"),
+            autosize = T,
+            xaxis = list(
+              color = "transparent"
+            ),
+            yaxis = list(
+              color = "transparent"
+            )
+)
+```
+
+```{r echo=FALSE}
+p2
+
+```
+</p>
+**Figure 9.** Bat species contacted by volunteers during the surveys. </p>
+*(Unidentified: bat species identified as Chiroptera sp.)*
+
+<p>&nbsp; </p>
+**Table 1.** List of the bat species contacted during the surveys.
+</p>
+```{r echo=FALSE}
+ library(knitr)
+ kable(brec[,1:3])
+```
+
+</p>
+* Most of the bat individuals observed were identified at the genus or species level (87.8%). </p>
+* The two species of pipistrelle bats were the most dominant species contacted. </p>
+* Rare and elusive bats such as the greater horseshoe bat, lesser horseshoe bat, and brown long-eared bat were detected during the surveys. 
+
+<p>&nbsp; </p>
+
+**Table 2.** Mean reliability index of the bat identification made by the volunteers. </p>
+*1: Reliable; 1< X <= 2: likely to be reliable; 2< X <= 3: less likely to be reliable; >3: unreliable*
+
+
+```{r echo=FALSE}
+ library(knitr)
+rel<-read.table("C:/Users/Jeremy/Documents/BCT internship/reliability.txt",header=TRUE,quote="",sep="\t",dec=".")
+
+ kable(rel[,1:3])
+```
+
+</p>
+
+* As no information was given on how the observations of *Pipistrellus sp.* and *Myotis sp.* were made, the reliability indices for these records are high (i.e. records unreliable). </p>
+* Several records of brown long-eared bat are considered to be less likely reliable as there were either made by visual sighting or by using a bat detector (possible confusion with grey long-eared bat). </p>
+* Greater and lesser horshoe bats were identified using a bat detector. As the echolocation calls of these two species are very characteritics, these records are reliable. </p>
+* All the other observations are likely to be reliable. 
+
+</p>
+###*2.3. Species identification*
+
+```{r include=FALSE}
+# Pie Chart with Percentages
+id<-read.table("C:/Users/Jeremy/Documents/BCT internship/spid.txt",header=TRUE,dec=".")
+library(plotly)
+
+ds <- data.frame(labels = id$species_identification,
+                 values= id$count)
+p4<-plot_ly(labels = ds$labels, values = ds$values, type = "pie")
+
+p4<- layout(p4,
+            paper_bgcolor="rgb(255,255,255)",
+            plot_bgcolor="rgb(255,255,255)",
+            legend = list(font = list(color = "black"),
+                          bgcolor = "transparent"),
+            autosize = T,
+            xaxis = list(
+              color = "transparent"
+            ),
+            yaxis = list(
+              color = "transparent"
+            )
+)
+```
+
+```{r echo=FALSE}
+p4
+
+```
+</p>
+**Figure 10.** Methods used to identify the different bat species. 
+
+</p>
+* More than half of the bat species observed were identified using a bat detector. </p>
+* Volunteers were able to identify bats by visual sighting in one third of the case (but see section on reliability) </p>
+* Given that the Sunset-Sunrise survey mainly target non-expert volunteers (i.e. the general public), it is quite surprising to see that volunteers involved in this survey used bat detector to identify the bats. This result would suggest that people that are already enthusiastic about bats are participating to the survey.
+
+<p>&nbsp; </p>
+```{r echo=FALSE}
+
+bspid<-read.table("C:/Users/Jeremy/Documents/BCT internship/batspecid.txt",header=TRUE,dec=".")
+bspid2<- ddply(bspid, "bat_species", mutate, count = count/sum(count))
+
+ggplot(data = bspid2, aes(x = bat_species, y = count, fill = species_identification)) + 
+    geom_bar(stat="identity") + coord_flip() + 
+    scale_y_continuous(labels = percent_format())+ scale_fill_brewer(palette = 12)+labs(x="",y="Records")
+
+
+```
+</p>
+**Figure 11.** Identification method used according to the bat species.
+</p>
+* As we would expect, most of the species identified at the species level were identified using a bat detector. </p>
+* Similarly, when volunteers made a visual sighting, the bat observed was not identified either at the species level nor the genus level.</p>
+* Suprisingly, some bats were identified as brown long-eared bat by visual sighting only (but see section on reliability). 
+
+<p>&nbsp; </p>
+```{r include=FALSE}
+# Pie Chart with Percentages
+det<-read.table("C:/Users/Jeremy/Documents/BCT internship/det.txt",header=TRUE,dec=".")
+library(plotly)
+
+ds <- data.frame(labels = det$detector_type,
+                 values= det$count)
+p5<-plot_ly(labels = ds$labels, values = ds$values, type = "pie")
+
+p5<- layout(p5,
+            paper_bgcolor="rgb(255,255,255)",
+            plot_bgcolor="rgb(255,255,255)",
+            legend = list(font = list(color = "black"),
+                          bgcolor = "transparent"),
+            autosize = T,
+            xaxis = list(
+              color = "transparent"
+            ),
+            yaxis = list(
+              color = "transparent"
+            )
+)
+```
+
+```{r echo=FALSE}
+p5
+
+```
+</p>
+**Figure 12.** Detector type used for the acoustic identification.
+</p>
+* Amongst the different type of bat detector available, the heterodyne bat detector is the main detector used by volunteers.
+
+<p>&nbsp; </p>
+###*2.4. Type of sighting*
+```{r include=FALSE}
+# Pie Chart with Percentages
+bbh<-read.table("C:/Users/Jeremy/Documents/BCT internship/batbehav.txt",header=TRUE,dec=".")
+library(plotly)
+
+ds <- data.frame(labels = bbh$type_of_sighting,
+                 values= bbh$count)
+p3<-plot_ly(labels = ds$labels, values = ds$values, type = "pie")
+
+p3<- layout(p3,
+            paper_bgcolor="rgb(255,255,255)",
+            plot_bgcolor="rgb(255,255,255)",
+            legend = list(font = list(color = "black"),
+                          bgcolor = "transparent"),
+            autosize = T,
+            xaxis = list(
+              color = "transparent"
+            ),
+            yaxis = list(
+              color = "transparent"
+            )
+)
+```
+
+```{r echo=FALSE}
+p3
+
+```
+</p> 
+**Figure 13.** Type of sighting.   </p>
+* Most of the bats observed were commuting or foraging (in flight). </p>
+* Interestingly, volunteers made several observations of bat swarming. 
+As it might be difficult for non bat experts to tell the different bat behaviours apart, we should be cautious with these results. 
+
+</p>
+
+```{r echo=FALSE}
+bid<-read.table("C:/Users/Jeremy/Documents/BCT internship/behavid.txt",header=TRUE,dec=".")
+bid2<- ddply(bid, "type_of_sighting", mutate, count = count/sum(count))
+
+ggplot(data = bid2, aes(x = type_of_sighting, y = count, fill = species_identification)) + 
+    geom_bar(stat="identity") + coord_flip() + 
+    scale_y_continuous(labels = percent_format())+ scale_fill_brewer(palette = 12)+labs(x="Type of sighting",y="% of records")
+
+```
+</p>
+**Figure 14.** Identification method used by volunteers according the sighting type. </p>
+</p>
+* As we would expect, most of the species in flight and swarming were identified using a bat detector. </p>
+* For half of the records made at roost site, species were identified using a bat detector. 
+
+</p>
+###*2.5. Other taxon groups encountered during the surveys*
+
+```{r include=FALSE}
+tax2<-read.table("C:/Users/Jeremy/Documents/BCT internship/taxa2.txt",header=TRUE,dec=".")
+library(plotly)
+
+
+ds <- data.frame(labels = tax2$taxon_group,
+                 values= tax2$count)
+t1<-plot_ly(labels = ds$labels, values = ds$values, type = "pie")
+
+t1<- layout(t1,
+            paper_bgcolor="rgb(255,255,255)",
+            plot_bgcolor="rgb(255,255,255)",
+            legend = list(font = list(color = "black"),
+                          bgcolor = "transparent"),
+            autosize = T,
+            xaxis = list(
+              color = "transparent"
+            ),
+            yaxis = list(
+              color = "transparent"
+            )
+)
+```
+
+```{r echo=FALSE}
+t1
+
+```
+</p>
+**Figure 15.** Taxon groups (bats excluded) contacted by volunteers during the surveys.
+</p>
+* Non-flying mammals and birds were the taxa the most encountered when doing the survey. </p>
+* It is very likely that the observations of insects (e.g. moths) were not entered into the online system as people always pay less attention to this taxa. 
+
+
+<p>&nbsp; </p>
+**Table 3.** List of the taxa (bats excluded) contacted during the surveys.
+```{r echo=FALSE}
+ library(knitr)
+tax3<-read.table("C:/Users/Jeremy/Documents/BCT internship/taxa3.txt",header=TRUE,quote="",sep="\t",dec=".")
+kable(tax3[,1:2])
+```
+
+<p>&nbsp; </p>
+## <span style="color:darkblue">Part 3. Assessement of the Sunset-Sunrise survey version 2016 </span>
+<p>&nbsp; </p>
+
+```{r echo=FALSE}
+prev<-read.table("C:/Users/Jeremy/Documents/BCT internship/previous.txt",header=TRUE,quote="",sep="\t",dec=".")
+Q<-ggplot(data=prev,aes(x=year,y=no_of_volunteers))+geom_bar(stat="identity",fill="darkblue")
+Q1<-Q+labs(x="",y="Number of volunteers")+ylim(c(0,400))
+Q2<-Q1+annotate("text",x=2002,y=86,label="66")
+Q3<-Q2+annotate("text",x=2003,y=221,label="201")
+Q4<-Q3+annotate("text",x=2004,y=272,label="252")
+Q5<-Q4+annotate("text",x=2005,y=346,label="326")
+Q6<-Q5+annotate("text",x=2006,y=239,label="219")
+Q7<-Q6+annotate("text",x=2007,y=213,label="193")
+Q8<-Q7+annotate("text",x=2008,y=207,label="187")
+Q9<-Q8+annotate("text",x=2009,y=193,label="173")
+Q10<-Q9+annotate("text",x=2010,y=223,label="203")
+Q11<-Q10+annotate("text",x=2011,y=306,label="286")
+Q12<-Q11+annotate("text",x=2012,y=210,label="190")
+Q13<-Q12+annotate("text",x=2013,y=197,label="177")
+Q14<-Q13+annotate("text",x=2014,y=206,label="186")
+Q15<-Q14+annotate("text",x=2015,y=245,label="225")
+Q16<-Q15+annotate("text",x=2016,y=122,label="102")
+Q17<-Q16+ geom_hline(yintercept=206,linetype=3,colour="red")
+Q17
+```
+</p>
+**Figure 16.** Number of lead volunteers involved in the Sunset-Sunrise survey over time (2002-2016). The red dotted line represents the mean value for the period 2002-2015. 
+</p>
+* The participation of lead volunteers has decreased twofold in 2016 compared to the previous years. </p>
+
+<p>&nbsp; </p>
+```{r echo=FALSE}
+prev<-read.table("C:/Users/Jeremy/Documents/BCT internship/previous2.txt",header=TRUE,quote="",sep="\t",dec=".")
+Q<-ggplot(data=prev,aes(x=year,y=no_of_volunteers))+geom_bar(stat="identity",fill="darkblue")
+Q1<-Q+labs(x="",y="Number of volunteers")+ylim(c(0,400))
+Q2<-Q1+annotate("text",x=2002,y=111,label="91")
+Q3<-Q2+annotate("text",x=2003,y=294,label="274")
+Q4<-Q3+annotate("text",x=2004,y=315,label="295")
+Q5<-Q4+annotate("text",x=2005,y=377,label="357")
+Q6<-Q5+annotate("text",x=2006,y=256,label="236")
+Q7<-Q6+annotate("text",x=2007,y=201,label="181")
+Q8<-Q7+annotate("text",x=2008,y=292,label="272")
+Q9<-Q8+annotate("text",x=2009,y=157,label="137")
+Q10<-Q9+annotate("text",x=2010,y=232,label="212")
+Q11<-Q10+annotate("text",x=2011,y=272,label="252")
+Q12<-Q11+annotate("text",x=2012,y=295,label="275")
+Q13<-Q12+annotate("text",x=2013,y=222,label="202")
+Q14<-Q13+annotate("text",x=2014,y=219,label="199")
+Q15<-Q14+annotate("text",x=2015,y=292,label="272")
+Q16<-Q15+annotate("text",x=2016,y=194,label="174")
+Q17<-Q16+ geom_hline(yintercept=232.5,linetype=3,colour="red")
+Q17
+```
+</p>
+**Figure 17.** Total number of volunteers involved in the Sunset-Sunrise survey over time (2002-2016).The red dotted line represents the mean value for the period 2002-2015.
+</p>
+* The total number of participants in 2016 was a bit lower that previous years. This result suggests nevertheless that the decrease of participation is less dramatic that previously thought (i.e. by looking at the lead volunteer participation only). </p>
+* Possible explanations of the decrease observed are (need to be discussed with Katherine, Philip and Becky): </p>
+    + **Online system.** Volunteers might not be keen to enter the data into the online system. </p>
+    + **Lack of communication.** The new version of the survey may have been less advertised. </p>
+
+```{r echo=FALSE}
+
+year = c(2015,2016)
+hour = c(43.5,2.3)
+df = data.frame(s, b)
+Q<-ggplot(data=df,aes(x=year,y=hour))+geom_bar(stat="identity",fill="darkblue")
+Q1<-Q+labs(x="",y="No. of hours")+ylim(c(0,50))+scale_x_discrete(limits=c("2015","2016"))
+Q2<-Q1+annotate("text",x=2015,y=45,label="43h30")
+Q3<-Q2+annotate("text",x=2016,y=4,label="2h15")
+Q3
+```
+
+
+
+
