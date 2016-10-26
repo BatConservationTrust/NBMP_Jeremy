@@ -5,7 +5,7 @@ date: "26 October 2016"
 output: html_document
 ---
 </p>
-## List of package required
+## List of packages required
 ```{r echo=FALSE}
 library(ggplot2)
 library(rgdal)
@@ -125,10 +125,6 @@ scale_bar <- function(lon, lat, distance_lon, distance_lat, distance_legend, dis
     }
     return(res)
 }
-
-
-
-
 ```
 </p>
 ### Download the required maps (http://www.gadm.org/)
@@ -158,7 +154,6 @@ P6<-P5 + theme(panel.grid.minor = element_line(colour = NA), panel.grid.minor = 
              rect = element_blank(), 
              plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines"))
 P6
-
 #Map b
 P0<-ggplot()+geom_polygon(data=UKmap,aes(x=long,y=lat,group=group),fill="grey10",color="black")+coord_map()
 P1<-P0+geom_polygon(data=Imap,aes(x=long,y=lat,group=group),fill="white",color="black")
