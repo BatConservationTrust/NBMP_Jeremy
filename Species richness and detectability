@@ -49,7 +49,6 @@ points(spec$richness~spec$sites, pch=16,col="black",cex=1.2)
 title(main="Species accumulation curve",cex.main=1.5)
 spec
 
-
 #============================================================================================================================
 #======================================== Site occupancy models =============================================================
 #============================================================================================================================
@@ -235,3 +234,101 @@ new.dats$upp95<-plogis(new.dats$mod.avg.pred.logit + 1.96 * new.dats$uncond.se.l
 lines(y=new.dats$low95,x=new.dats$TempST,lty="dotted")
 lines(y=new.dats$upp95,x=new.dats$TempST,lty="dotted")
 #add confidence bands
+
+
+#============================================================================================================================
+#======================================== Detection probabilities: curve ====================================================
+#============================================================================================================================
+
+library(lattice)
+
+#Pipistrellus pygmaeus
+pyg<-read.table("F:/Survey effort - Acoustic data/Detection graph/pygDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(pyg,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(italic("Pipistrellus pygmaeus")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
+#Pipistrellus pipistrellus
+pip<-read.table("F:/Survey effort - Acoustic data/Detection graph/pipDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(pip,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(italic("Pipistrellus pipistrellus")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
+#Pipistrellus nathusii
+nath<-read.table("F:/Survey effort - Acoustic data/Detection graph/nathDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(nath,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(italic("Pipistrellus nathusii")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
+#Rhinolophus ferrumequinum
+ghb<-read.table("F:/Survey effort - Acoustic data/Detection graph/ghbDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(ghb,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(italic("Rhinolophus ferrumequinum")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
+#Rhinolophus hipposideros
+lhb<-read.table("F:/Survey effort - Acoustic data/Detection graph/lhbDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(lhb,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(italic("Rhinolophus hipposideros")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
+#Nyctalus noctula
+noc<-read.table("F:/Survey effort - Acoustic data/Detection graph/nocDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(noc,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(italic("Nyctalus noctula")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
+#Nyctalus leisleri
+leis<-read.table("F:/Survey effort - Acoustic data/Detection graph/leisDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(leis,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(italic("Nyctalus leisleri")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
+#Eptesicus serotinus
+sero<-read.table("F:/Survey effort - Acoustic data/Detection graph/seroDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(sero,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(italic("Eptesicus serotinus")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
+#Plecotus spp.
+plec<-read.table("F:/Survey effort - Acoustic data/Detection graph/plecDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(plec,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(paste(italic("Plecotus")," spp.")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
+#Myotis spp.
+myo<-read.table("F:/Survey effort - Acoustic data/Detection graph/myoDET.txt",header=TRUE,sep="\t",dec=".")
+
+boxplot(myo,outline=FALSE, xlab = "Number of sampling nights",
+        ylab = "Probability of detection",cex.lab=1.25,cex.main=1.25,xaxt='n', ann=FALSE,
+        ylim = c(0, 1),main=expression(paste(italic("Myotis")," spp.")))
+abline(h=0.95,lty=3)
+axis(side = 1, at = seq(0, 15, by = 1), labels = TRUE, tcl = -0.2)
+
