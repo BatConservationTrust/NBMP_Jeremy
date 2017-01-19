@@ -1,0 +1,347 @@
+
+#/////////////////////////////////////////////////////////// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#                                              Roost Surveys - 3rd project
+
+#/////////////////////////////////////////////////////////// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Packages to open
+library(MASS)
+library(mgcv)
+library(lme4)
+library(RVAideMemoire)
+library(MuMIn)
+library(multcomp)
+
+######################################################################################################################
+
+#####################    Comparison: Bat species richness Phase 1 vs Phase 2   #######################################
+
+######################################################################################################################
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+nbat<- read.table("NbatsPh1&2.txt",header=TRUE,sep="\t",dec=".")
+
+#////////////////////////
+#   II. Data exploration
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+nbat$Phase<-as.factor(nbat$Phase)
+nbat$BuildingID<-as.factor(nbat$BuildingID)
+#Check the distribution of the dependent (i.e. response) variable; it looks Poisson
+hist(nbat$Nb)
+#Check the Normaility; it is not normal
+M1<-lm(Nb~Phase,data=nbat)
+shapiro.test(residuals(M1))
+#Check if it is a Poisson distribution (mean should be ~ = to variance); it looks Poisson
+var(nbat$Nb)
+mean(nbat$Nb)
+#Check if there is overdispersion; it looks OK
+M1<-glmer(Nb~Phase+(1|County/lpa/BuildingID),family="poisson",data=nbat)
+overdisp.glmer(M1)
+
+#//////////////////////////////
+#   III. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#We compare model 1 to the null model with AIC
+M1<-glmer(Nb~lpa+(1|County/lpa/BuildingID),family="poisson",data=nbat)
+M0<-glmer(Nb~1+(1|County/lpa/BuildingID),family="poisson",data=nbat)
+AIC(M1,M0)
+#As M0 is the most parsimonious model (according to the AIC),
+#this suggests that there is no difference in terms of number of bat species detected between phase 1 and phase 2. 
+
+######################################################################################################################
+
+#####################    Accumulation of species richness btw Phase 1 & Phase 2   ####################################
+
+######################################################################################################################
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+gbat<- read.table("GbatsPh1&2.txt",header=TRUE,sep="\t",dec=".")
+
+#////////////////////////
+#   II. Data exploration
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+gbat$Phase<-as.factor(gbat$Phase)
+gbat$BuildingID<-as.factor(gbat$BuildingID)
+
+#Check the distribution of the dependent (i.e. response) variable; it looks Poisson
+hist(gbat$gain)
+#Check the Normaility; it is not normal
+M1<-lm(gain~Phase,data=gbat)
+shapiro.test(residuals(M1))
+#Check if it is a Poisson distribution (mean should be ~ = to variance); it looks Poisson
+var(gbat$gain)
+mean(gbat$gain)
+#Check if there is overdispersion; it looks OK
+M1<-glmer(gain~Phase+(1|County/lpa/BuildingID),family="poisson",data=gbat)
+overdisp.glmer(M1)
+
+#//////////////////////////////
+#   III. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#We compare model 1 to the null model with AIC
+M1<-glmer(gain~Phase+(1|County/lpa/BuildingID),family="poisson",data=gbat)
+M0<-glmer(gain~1+(1|County/lpa/BuildingID),family="poisson",data=gbat)
+AIC(M1,M0)
+#As M1 is the most parsimonious model (according to the AIC),
+#this suggests that there is a significant difference
+summary(M1)
+
+######################################################################################################################
+
+#########################    Comparison: P/A All bat Phase 1 vs Phase 2   ############################################
+
+######################################################################################################################
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+bat<- read.table("NbatsPh1&2.txt",header=TRUE,sep="\t",dec=".")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+bat$Phase<-as.factor(bat$Phase)
+bat$BuildingID<-as.factor(bat$BuildingID)
+
+#Check if there is overdispersion; it looks OK
+M1<-glmer(PA~Phase+(1|County/lpa/BuildingID),family="binomial",data=bat)
+M0<-glmer(PA~1+(1|County/lpa/BuildingID),family="binomial",data=bat)
+AIC(M1,M0)
+summary(M1)
+
+######################################################################################################################
+
+#####################    Comparison: P/A Pipistrelle bat Phase 1 vs Phase 2   #######################################
+
+######################################################################################################################
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+pip<- read.table("pipPh1&2.txt",header=TRUE,sep="\t",dec=".")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+pip$Phase<-as.factor(pip$Phase)
+pip$BuildingID<-as.factor(pip$BuildingID)
+
+#Check if there is overdispersion; it looks OK
+M1<-glmer(PApip~Phase+(1|County/lpa/BuildingID),family="binomial",data=pip)
+M0<-glmer(PApip~1+(1|County/lpa/BuildingID),family="binomial",data=pip)
+AIC(M1,M0)
+summary(M1)
+
+
+######################################################################################################################
+
+#####################    Comparison: P/A Long-eared bat Phase 1 vs Phase 2   #########################################
+
+######################################################################################################################
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+plec<- read.table("plecPh1&2.txt",header=TRUE,sep="\t",dec=".")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+plec$Phase<-as.factor(plec$Phase)
+plec$BuildingID<-as.factor(plec$BuildingID)
+
+#Check if there is overdispersion; it looks OK
+M1<-glmer(Paplec~Phase+(1|County/lpa/BuildingID),family="binomial",data=plec)
+M0<-glmer(Paplec~1+(1|County/lpa/BuildingID),family="binomial",data=plec)
+AIC(M0,M1)
+summary(M1)
+
+######################################################################################################################
+
+#####################    Phase 2: Factors affecting bat RICHNESS | ALL dataset   #########################################
+
+######################################################################################################################
+
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+bat<- read.table("speciesPh2.txt",header=TRUE,sep="\t",dec=".")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+bat$BuildingID<-as.factor(bat$BuildingID)
+
+#Check if there is overdispersion; it looks OK
+M1<-glmer(richness~1+(1|county/lpa/BuildingID),family="poisson",data=bat)
+overdisp.glmer(M1)
+
+#Stepwise model selection
+M1<-glmer(richness~tempstart+julianDay+cloud+rain+wind+surveyors+sampdur+builtype+(1|county/lpa/BuildingID),family="poisson",data=bat,na.action = "na.omit")
+M2<-glmer(richness~tempstart+julianDay+cloud+rain+wind+surveyors+sampdur+(1|county/lpa/BuildingID),family="poisson",data=bat,na.action = "na.omit")
+anova(M1,M2)#M2 better than M1.Builtype remains. 
+M3<-glmer(richness~tempstart+julianDay+cloud+rain+wind+surveyors+builtype+(1|county/lpa/BuildingID),family="poisson",data=bat,na.action = "na.omit")
+anova(M2,M3)#M3 better than M2
+M4<-glmer(richness~tempstart+julianDay+cloud+rain+wind+builtype+(1|county/lpa/BuildingID),family="poisson",data=bat,na.action = "na.omit")
+anova(M4,M3)#M3 better than M4. Surveyors remains.
+#etc.
+#etc.
+M9<-glmer(richness~surveyors+builtype+(1|county/lpa/BuildingID),family="poisson",data=bat,na.action = "na.omit")
+M10<-glmer(richness~surveyors+(1|county/lpa/BuildingID),family="poisson",data=bat,na.action = "na.omit")
+M11<-glmer(richness~builtype+(1|county/lpa/BuildingID),family="poisson",data=bat,na.action = "na.omit")
+M12<-glmer(richness~1+(1|county/lpa/BuildingID),family="poisson",data=bat,na.action = "na.omit")
+candidates<-model.sel(M1,M9,M10,M11,M12)
+model.sel(candidates,rank=AIC)
+
+#M9 is the best model
+M9<-glmer(richness~builtype+surveyors+(1|county/lpa/BuildingID),family="poisson",data=bat,na.action = "na.omit")
+summary(glht(M9,mcp(builtype="Tukey")))
+summary(M9)
+
+boxplot(richness~builtype,data=bat,ylab="Species richness",xlab="Building type")
+
+
+######################################################################################################################
+
+#####################    Phase 2: Factors affecting bat PRESENCE  | ALL dataset  #########################################
+
+######################################################################################################################
+
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+bat<- read.table("speciesPh2.txt",header=TRUE,sep="\t",dec=".")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "buildingID" as factor
+bat$BuildingID<-as.factor(bat$BuildingID)
+
+M1<-glmer(PA~tempstart+julianDay+cloud+rain+wind+surveyors+sampdur+builtype+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+M2<-glmer(PA~surveyors+builtype+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+M3<-glmer(PA~builtype+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+M4<-glmer(PA~surveyors+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+M5<-glmer(PA~surveyors+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+
+candidates<-model.sel(M2,M3,M4,M5)
+model.sel(candidates,rank=AIC)
+summary(M2)
+
+######################################################################################################################
+
+#####################    Phase 2: Factors affecting PIPISTRELLE PRESENCE  | ALL dataset  #############################
+
+######################################################################################################################
+
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+bat<- read.table("speciesPh2.txt",header=TRUE,sep="\t",dec=".")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+bat$BuildingID<-as.factor(bat$BuildingID)
+
+M1<-glmer(PApip~tempstart+julianDay+cloud+rain+wind+surveyors+sampdur+builtype+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+M3<-glmer(PApip~builtype+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+M4<-glmer(PApip~1+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+candidates<-model.sel(M3,M4)
+model.sel(candidates,rank=AIC)
+summary(M3)
+
+
+summary(glht(M3, mcp(builtype="Tukey")))
+
+AIC(M1,M2,M3)
+
+
+######################################################################################################################
+
+#####################    Phase 2: Factors affecting PLECOTUS PRESENCE  | ALL dataset  #############################
+
+######################################################################################################################
+
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+bat<- read.table("speciesPh2.txt",header=TRUE,sep="\t",dec=".")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+bat$BuildingID<-as.factor(bat$BuildingID)
+
+
+M2<-glmer(PAplec~builtype+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+summary(M2)
+
+M3<-glmer(PAplec~wind+(1|county/lpa/BuildingID),family="binomial",data=bat,na.action = "na.omit")
+summary(M3)
+
+AIC(M2,M3)
