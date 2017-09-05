@@ -1,0 +1,414 @@
+
+
+#================ Part 2. of roost survey
+#============================================================================================================================
+#--------------
+#I. ALL BATS
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Package required for site occupancy models in R
+library(unmarked)
+
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import sample covariates
+tempALL<-read.table("tempALL.txt",header=TRUE,sep="\t",dec=".")
+surveyorALL<-read.table("surveyorALL.txt",header=TRUE,sep="\t",dec=".")
+typeALL<-read.table("typeALL.txt",header=TRUE,sep="\t",dec=".")
+durationALL<-read.table("durationALL.txt",header=TRUE,sep="\t",dec=".")
+cloudALL<-read.table("cloudALL.txt",header=TRUE,sep="\t",dec=".")
+
+#Import detection history data
+all<-read.table("paALL.txt",header=TRUE,sep="\t",dec=".")
+building<-all$BuildingID
+
+#-------------------
+#II. Data formatting
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Check the mean of sample covariates
+mean(as.vector(as.matrix(tempALL[,-1])),na.rm=T)
+mean(as.vector(as.matrix(surveyorALL[,-1])),na.rm=T)
+mean(as.vector(as.matrix(durationALL[,-1])),na.rm=T)
+
+#Standardized data
+library(vegan)
+building<-as.numeric(building)
+temp<-decostand(tempALL[,-1],"standardize",na.rm=TRUE)
+surveyor<-decostand(surveyorALL[,-1],"standardize",na.rm=TRUE)
+duration<-decostand(durationALL[,-1],"standardize",na.rm=TRUE)
+building<-decostand(building,"standardize",na.rm=T)
+
+pa<-all[,-1]
+cloud<-cloudALL[,-1]
+type<-typeALL[,-1]
+
+build<-data.frame(building=building)
+cov<-dataframe(Cloud=cloud,Type=type,Temp=temp,Surveyor=surveyor,Duration=duration)
+
+#Data formatting with unmarkedFrameOccu
+sp1occ<-unmarkedFrameOccu(y= pa,siteCovs =build , obsCovs = list(Cloud=cloud,Type=type,Temp=temp,Surveyor=surveyor,Duration=duration))
+summary(sp1occ)
+
+str(cloud)
+str(pa)
+str(duration)
+str(temp)
+
+#-------------------
+#III. Model building
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Check the Goodness of fit (Test; MacKenzie & Bailey 2004)
+#Do it using the most parameterized (complex) model
+#We can get a graph of the distribution of X2 observed compared to the X2 got with bootstrap.
+#If c.hat.est > 1   => low fit, need to use QAIC values (quasi-AIC) or QAICc (depending on the sample size; if n <= 40)
+
+library(AICcmodavg)
+m1<-occu(~Temp+Duration+Type+Surveyor+Cloud ~1,data=sp1occ)
+summary(m1)
+
+str(temp)
+
+gof<-mb.gof.test(m1,nsim=1000,plot.hist=TRUE)
+#nsim=1000 is enough; get the same result as 10 000.
+gof$chisq.table
+gof$c.hat.est
+
+#-------------------
+#IV. Model selection
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Select the best model automatically
+library(MuMIn)
+#Most parameterized (complex) model
+m00<-occu(~ Temp+Duration+Surveyor+Type+Cloud ~ 1,data=sp1occ)
+options(na.action = "na.fail")
+dd<-dredge(m00, rank = "QAICc", chat = 1.5) 
+
+subset(dd, delta < 1.99)
+m1<-occu(~Duration+Temp~ 1,data=sp1occ)
+m2<-occu(~Duration+Surveyor+Temp ~ 1,data=sp1occ)
+m3<-occu(~Temp ~ 1,data=sp1occ)
+m4<-occu(~Surveyor+Temp~ 1,data=sp1occ)
+m5<-occu(~Cloud+Duration+Temp ~ 1,data=sp1occ)
+summary(m5)
+
+candidates<-list(m1,m2,m3,m4,m5)
+names<-c("m1","m2","m3","m4","m5")
+aictab(cand.set= candidates, modnames = names,c.hat = 1.5)
+
+
+#if c.hat.est > 1, we have to adjust the model selection
+#More details in: http://www.inside-r.org/packages/cran/AICcmodavg/docs/aictab
+
+
+#------------------
+#V. Model averaging
+#------------------------------------------------------------------------------------------------------------------------------
+
+m<-modavg(cand.set= candidates, modnames = names, c.hat=1.5,parm="Cloud",parm.type="detect")
+#weighted estimated of the temperature
+#parm -> parameter that we want to explore
+#parm.type -> we need to specify if parameter correspond to prob of detection or psi
+
+
+#To obtain model-averaged estimates of detection probability
+backTransform(linearComb(m1,c(1,0,0), type = 'det'))
+backTransform(linearComb(m2,c(1,0,0,0), type = 'det'))
+backTransform(linearComb(m3,c(1,0), type = 'det'))
+backTransform(linearComb(m4,c(1,0,0), type = 'det'))
+backTransform(linearComb(m5,c(1,0,0,0), type = 'det'))
+
+
+###############################################################################################################################
+#II. Pipistrelle bat
+###############################################################################################################################
+
+#Package required for site occupancy models in R
+library(unmarked)
+
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import sample covariates
+tempPIP<-read.table("tempPIP.txt",header=TRUE,sep="\t",dec=".")
+surveyorPIP<-read.table("surveyorPIP.txt",header=TRUE,sep="\t",dec=".")
+typePIP<-read.table("typePIP.txt",header=TRUE,sep="\t",dec=".")
+durationPIP<-read.table("durationPIP.txt",header=TRUE,sep="\t",dec=".")
+cloudPIP<-read.table("cloudPIP.txt",header=TRUE,sep="\t",dec=".")
+
+#Import detection history data
+pip<-read.table("paPIP.txt",header=TRUE,sep="\t",dec=".")
+building<-pip$BuildingID
+
+#-------------------
+#II. Data formatting
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Check the mean of sample covariates
+mean(as.vector(as.matrix(tempPIP[,-1])),na.rm=T)
+mean(as.vector(as.matrix(surveyorPIP[,-1])),na.rm=T)
+mean(as.vector(as.matrix(durationPIP[,-1])),na.rm=T)
+
+#Standardized data
+library(vegan)
+building<-as.numeric(building)
+temp<-decostand(tempPIP[,-1],"standardize",na.rm=TRUE)
+surveyor<-decostand(surveyorPIP[,-1],"standardize",na.rm=TRUE)
+duration<-decostand(durationPIP[,-1],"standardize",na.rm=TRUE)
+building<-decostand(building,"standardize",na.rm=T)
+
+pip<-pip[,-1]
+cloud<-cloudPIP[,-1]
+type<-typePIP[,-1]
+
+build<-data.frame(building=building)
+
+#Data formatting with unmarkedFrameOccu
+sp1occ<-unmarkedFrameOccu(y= pip,siteCovs =build , obsCovs = list(Cloud=cloud,Type=type,Temp=temp,Surveyor=surveyor,Duration=duration))
+summary(sp1occ)
+
+str(cloud)
+str(duration)
+str(temp)
+
+#-------------------
+#III. Model building
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Check the Goodness of fit (Test; MacKenzie & Bailey 2004)
+#Do it using the most parameterized (complex) model
+#We can get a graph of the distribution of X2 observed compared to the X2 got with bootstrap.
+#If c.hat.est > 1   => low fit, need to use QAIC values (quasi-AIC) or QAICc (depending on the sample size; if n <= 40)
+
+library(AICcmodavg)
+m1<-occu(~Duration+Type+Surveyor+Cloud ~1,data=sp1occ)
+summary(m1)
+
+str(temp)
+
+gof<-mb.gof.test(m1,nsim=1000,plot.hist=TRUE)
+#nsim=1000 is enough; get the same result as 10 000.
+gof$chisq.table
+gof$c.hat.est
+
+#-------------------
+#IV. Model selection
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Select the best model automatically
+library(MuMIn)
+#Most parameterized (complex) model
+m00<-occu(~ Temp+Duration+Surveyor+Type+Cloud ~ 1,data=sp1occ)
+options(na.action = "na.fail")
+dd<-dredge(m00, rank = "QAICc", chat = 1.39) 
+
+subset(dd, delta < 2.2)
+m1<-occu(~Duration+Temp+Surveyor~ 1,data=sp1occ)
+m2<-occu(~Duration+Temp ~ 1,data=sp1occ)
+m3<-occu(~Temp ~ 1,data=sp1occ)
+m4<-occu(~Surveyor+Temp~ 1,data=sp1occ)
+m5<-occu(~Duration+Surveyor+Temp+Type~ 1,data=sp1occ)
+summary(m5)
+
+candidates<-list(m1,m2,m3,m4,m5)
+names<-c("m1","m2","m3","m4","m5")
+aictab(cand.set= candidates, modnames = names,c.hat = 1.39)
+
+
+#if c.hat.est > 1, we have to adjust the model selection
+#More details in: http://www.inside-r.org/packages/cran/AICcmodavg/docs/aictab
+
+
+#------------------
+#V. Model averaging
+#------------------------------------------------------------------------------------------------------------------------------
+
+m<-modavg(cand.set= candidates, modnames = names, c.hat=1.39,parm="Type",parm.type="detect")
+m
+#weighted estimated of the temperature
+#parm -> parameter that we want to explore
+#parm.type -> we need to specify if parameter correspond to prob of detection or psi
+
+
+#To obtain model-averaged estimates of detection probability
+backTransform(linearComb(m1,c(1,0,0,0), type = 'det'))
+backTransform(linearComb(m2,c(1,0,0), type = 'det'))
+backTransform(linearComb(m3,c(1,0), type = 'det'))
+backTransform(linearComb(m4,c(1,0,0), type = 'det'))
+backTransform(linearComb(m5,c(1,0,0,0,0), type = 'det'))
+
+
+###############################################################################################################################
+#III. Long eared bat
+###############################################################################################################################
+
+#Package required for site occupancy models in R
+library(unmarked)
+
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import sample covariates
+tempPLEC<-read.table("tempPLEC.txt",header=TRUE,sep="\t",dec=".")
+surveyorPLEC<-read.table("surveyorPLEC.txt",header=TRUE,sep="\t",dec=".")
+typePLEC<-read.table("typePLEC.txt",header=TRUE,sep="\t",dec=".")
+durationPLEC<-read.table("durationPLEC.txt",header=TRUE,sep="\t",dec=".")
+cloudPLEC<-read.table("cloudPLEC.txt",header=TRUE,sep="\t",dec=".")
+
+#Import detection history data
+plec<-read.table("paPLEC.txt",header=TRUE,sep="\t",dec=".")
+building<-plec$BuildingID
+
+#-------------------
+#II. Data formatting
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Check the mean of sample covariates
+mean(as.vector(as.matrix(tempPLEC[,-1])),na.rm=T)
+mean(as.vector(as.matrix(surveyorPLEC[,-1])),na.rm=T)
+mean(as.vector(as.matrix(durationPLEC[,-1])),na.rm=T)
+
+#Standardized data
+library(vegan)
+building<-as.numeric(building)
+temp<-decostand(tempPLEC[,-1],"standardize",na.rm=TRUE)
+surveyor<-decostand(surveyorPLEC[,-1],"standardize",na.rm=TRUE)
+duration<-decostand(durationPLEC[,-1],"standardize",na.rm=TRUE)
+building<-decostand(building,"standardize",na.rm=T)
+
+plec<-plec[,-1]
+cloud<-cloudPLEC[,-1]
+type<-typePLEC[,-1]
+
+build<-data.frame(building=building)
+
+#Data formatting with unmarkedFrameOccu
+sp1occ<-unmarkedFrameOccu(y= plec,siteCovs =build , obsCovs = list(Cloud=cloud,Type=type,Temp=temp,Surveyor=surveyor,Duration=duration))
+summary(sp1occ)
+
+str(cloud)
+str(pa)
+str(duration)
+str(temp)
+
+#-------------------
+#III. Model building
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Check the Goodness of fit (Test; MacKenzie & Bailey 2004)
+#Do it using the most parameterized (complex) model
+#We can get a graph of the distribution of X2 observed compared to the X2 got with bootstrap.
+#If c.hat.est > 1   => low fit, need to use QAIC values (quasi-AIC) or QAICc (depending on the sample size; if n <= 40)
+
+library(AICcmodavg)
+m1<-occu(~Duration+Type+Surveyor+Cloud ~1,data=sp1occ)
+summary(m1)
+
+str(temp)
+
+gof<-mb.gof.test(m1,nsim=1000,plot.hist=TRUE)
+#nsim=1000 is enough; get the same result as 10 000.
+gof$chisq.table
+gof$c.hat.est
+
+#-------------------
+#IV. Model selection
+#------------------------------------------------------------------------------------------------------------------------------
+
+#Select the best model automatically
+library(MuMIn)
+#Most parameterized (complex) model
+m00<-occu(~ Temp+Duration+Surveyor+Type+Cloud ~ 1,data=sp1occ)
+options(na.action = "na.fail")
+dd<-dredge(m00, rank = "QAICc", chat = 1.47) 
+dd
+
+m1<-occu(~Temp+Surveyor~ 1,data=sp1occ)
+m2<-occu(~Temp ~ 1,data=sp1occ)
+m3<-occu(~Temp+ Cloud ~ 1,data=sp1occ)
+m4<-occu(~Surveyor+Temp+Cloud~ 1,data=sp1occ)
+m5<-occu(~Duration+Temp~ 1,data=sp1occ)
+summary(m5)
+
+candidates<-list(m1,m2,m3,m4,m5)
+names<-c("m1","m2","m3","m4","m5")
+aictab(cand.set= candidates, modnames = names,c.hat = 1.47)
+
+
+#if c.hat.est > 1, we have to adjust the model selection
+#More details in: http://www.inside-r.org/packages/cran/AICcmodavg/docs/aictab
+
+
+#------------------
+#V. Model averaging
+#------------------------------------------------------------------------------------------------------------------------------
+
+m<-modavg(cand.set= candidates, modnames = names, c.hat=1.47,parm="Cloud",parm.type="detect")
+m
+#weighted estimated of the temperature
+#parm -> parameter that we want to explore
+#parm.type -> we need to specify if parameter correspond to prob of detection or psi
+
+
+#To obtain model-averaged estimates of detection probability
+backTransform(linearComb(m1,c(1,0,0), type = 'det'))
+backTransform(linearComb(m2,c(1,0), type = 'det'))
+backTransform(linearComb(m3,c(1,0,0), type = 'det'))
+backTransform(linearComb(m4,c(1,0,0,0), type = 'det'))
+backTransform(linearComb(m5,c(1,0,0), type = 'det'))
+
+
+######################################################################################################################
+
+#####################    Detection probability curve  #########################################
+
+######################################################################################################################
+
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+curve<- read.table("curve.txt",header=TRUE,sep="\t",dec=".")
+library(ggplot2)
+
+
+theme_jack <- function (base_size = 12, base_family = "") {
+  theme_gray(base_size = base_size, base_family = base_family) %+replace% 
+    theme(
+      axis.text = element_text(colour = "black"),
+      axis.title.x = element_text(colour = "black", size=rel(1.5)),
+      axis.title.y = element_text(colour = "black", size=rel(1.5),angle=90),
+      panel.background = element_blank(),
+      panel.grid.minor.y =  element_blank(),
+      panel.grid.minor.x =  element_blank(),
+      panel.grid.major = element_blank(),
+      panel.border = element_blank(), 
+      plot.background = element_blank()
+    )   
+}
+theme_set(theme_jack())
+
+p1<-ggplot()  + geom_hline(yintercept=0.95, linetype="dotted", color = "grey80", size=0.8)+
+  geom_errorbar(data=curve,aes(x=Survey,ymin=lowPIP, ymax=uppPIP), colour="black", width=.1) +
+  geom_point(data=curve,aes(x=Survey, y=pPIP),size=1, shape=21, fill="white") +
+  geom_errorbar(data=curve,aes(x=Survey,ymin=lowPLEC, ymax=uppPLEC), colour="black", width=.1) +
+  geom_point(data=curve,aes(x=Survey, y=pPLEC),size=1, shape=21, fill="black") 
+
+p5<-p1+geom_segment(aes(x=0, xend=0, y=0.35, yend=1), linetype=1)
+p5<-p5+geom_segment(aes(x=0, xend=8, y=0.35, yend=0.35), linetype=1)
+p5<-p5+labs(x = "No. of acoustic surveys",y=expression(paste("Probability of detection (",italic("p"),")")))
+p5<-p5+scale_y_continuous(limits = c(0.35, 1.01),expand=c(0,0),breaks=c(0.4,0.5,0.6,0.7,0.8,0.9,1))
+p5<-p5+scale_x_continuous(limits = c(0, 8.2),expand=c(0,0),breaks=c(1,2,3,4,5,6,7,8))
+p5<-p5 + theme(axis.title.y = element_text(size=8))+theme(axis.title.x = element_text(size=8))+
+  theme(axis.text.x = element_text(size=6))+theme(axis.text.y = element_text(size=7))
+theme(axis.title=element_text(margin=margin(5,5,0,0)))
+p5
+
+ggsave("C:/Users/Jeremy/Desktop/Detection.tiff", plot = last_plot(), 
+       scale = 1, width = par("din")[1], height = par("din")[2], units = c("in", "cm", "mm"), dpi = 500, limitsize = TRUE)
+
+
+
+
+
