@@ -1,4 +1,3 @@
-
 #/////////////////////////////////////////////////////////// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 #                                              Roost Surveys - 3rd project
@@ -52,7 +51,7 @@ overdisp.glmer(M1)
 #\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 #We compare model 1 to the null model with AIC
-M1<-glmer(Nb~lpa+(1|County/lpa/BuildingID),family="poisson",data=nbat)
+M1<-glmer(Nb~Phase+(1|County/lpa/BuildingID),family="poisson",data=nbat)
 M0<-glmer(Nb~1+(1|County/lpa/BuildingID),family="poisson",data=nbat)
 AIC(M1,M0)
 #As M0 is the most parsimonious model (according to the AIC),
@@ -80,6 +79,7 @@ gbat<- read.table("GbatsPh1&2.txt",header=TRUE,sep="\t",dec=".")
 #Set the "phase" and the "buildingID" as factors
 gbat$Phase<-as.factor(gbat$Phase)
 gbat$BuildingID<-as.factor(gbat$BuildingID)
+gbat$Phase<-as.factor(gbat$Phase)
 
 #Check the distribution of the dependent (i.e. response) variable; it looks Poisson
 hist(gbat$gain)
@@ -102,8 +102,76 @@ M1<-glmer(gain~Phase+(1|County/lpa/BuildingID),family="poisson",data=gbat)
 M0<-glmer(gain~1+(1|County/lpa/BuildingID),family="poisson",data=gbat)
 AIC(M1,M0)
 #As M1 is the most parsimonious model (according to the AIC),
-#this suggests that there is a significant difference
+#this suggests that there is difference
 summary(M1)
+
+#//////////////////////////////
+#   IV. Draw the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+library(ggplot2)
+library(mgcv)
+library(grid)
+library(gridExtra)
+library(easyGgplot2)
+
+theme_jack <- function (base_size = 12, base_family = "") {
+  theme_gray(base_size = base_size, base_family = base_family) %+replace% 
+    theme(
+      axis.text = element_text(colour = "black"),
+      axis.title.x = element_text(colour = "black", size=rel(1.5)),
+      axis.title.y = element_text(colour = "black", size=rel(1.5),angle=90),
+      panel.background = element_blank(),
+      panel.grid.minor.y =  element_blank(),
+      panel.grid.minor.x =  element_blank(),
+      panel.grid.major = element_blank(),
+      panel.border = element_blank(), 
+      plot.background = element_blank()
+    )   
+}
+theme_set(theme_jack())
+
+easyPredCI <- function(model,newdata=NULL,alpha=0.05) {
+  ## baseline prediction, on the linear predictor (logit) scale:
+  pred0 <- predict(model,re.form=NA,newdata=newdata)
+  ## fixed-effects model matrix for new data
+  X <- model.matrix(formula(model,fixed.only=TRUE)[-2],newdata)
+  beta <- fixef(model) ## fixed-effects coefficients
+  V <- vcov(model)     ## variance-covariance matrix of beta
+  pred.se <- sqrt(diag(X %*% V %*% t(X))) ## std errors of predictions
+  ## inverse-link function
+  linkinv <- family(model)$linkinv
+  ## construct 95% Normal CIs on the link scale and
+  ##  transform back to the response (probability) scale:
+  crit <- -qnorm(alpha/2)
+  linkinv(cbind(conf.low=pred0-crit*pred.se,
+                conf.high=pred0+crit*pred.se))
+}
+M1<-glmer(gain~Phase+(1|County/lpa/BuildingID),family="poisson",data=gbat)
+new.dat<-data.frame(Phase=gbat$Phase,County=gbat$County,lpa=gbat$lpa,BuildingID=gbat$BuildingID)
+new.dat$pred<-predict(M1,newdata=new.dat,re.form=NA,type="response")
+
+predCI<-easyPredCI(M1,newdata=new.dat)
+new.dat2<-new.dat[-5]
+g.pframe2<-cbind(new.dat2,pred=new.dat$pred,predCI)
+
+
+p1<-ggplot()
+p2<-p1+ geom_boxplot(data=gbat, aes(x=Phase, y=gain),colour="black",size =0.5,outlier.colour = NA)
+p3<-p2+geom_point(data=g.pframe2,aes(x=Phase,y=pred),shape=21,colour="red",fill="red",size=1)
+p4<-p3+geom_segment(data=g.pframe2,aes(x=Phase,xend=Phase,y=conf.low,yend=conf.high),colour="red",size=0.5)
+p5<-p4+scale_x_discrete(breaks=c("1", "2"),
+                        labels=c("PRA", "ERS"))
+p6<-p5+theme(axis.ticks.x=element_blank(),axis.line.y= element_line(colour = "black"))
+p7<-p6+labs(x = "Survey method",y="Cumulative no. of species")
+p8<-p7 + theme(axis.title.y = element_text(size=8))+theme(axis.title.x = element_text(size=8))+
+  theme(axis.text.x = element_text(size=6))+theme(axis.text.y = element_text(size=7))+theme(axis.title=element_text(margin=margin(5,5,0,0)))
+p9<-p8+scale_y_continuous(limits = c(0, 4),expand=c(0,0))
+p9
+ggsave("C:/Users/Jeremy/Desktop/Richness.tiff", plot = last_plot(), 
+       scale = 1, width = par("din")[1], height = par("din")[2], units = c("in", "cm", "mm"), dpi = 500, limitsize = TRUE)
+
+
 
 ######################################################################################################################
 
@@ -134,6 +202,32 @@ M0<-glmer(PA~1+(1|County/lpa/BuildingID),family="binomial",data=bat)
 AIC(M1,M0)
 summary(M1)
 
+#/////////////////////////////
+#   III. Draw the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+M1<-glmer(PA~Phase+(1|County/lpa/BuildingID),family="binomial",data=bat)
+new.dat<-data.frame(Phase=bat$Phase,County=bat$County,lpa=bat$lpa,BuildingID=bat$BuildingID)
+new.dat$pred<-predict(M1,newdata=new.dat,re.form=NA,type="response")
+
+predCI<-easyPredCI(M1,newdata=new.dat)
+new.dat2<-new.dat[-5]
+g.pframe2<-cbind(new.dat2,pred=new.dat$pred,predCI)
+
+p1<-ggplot()
+p2<-p1+geom_point(data=g.pframe2,aes(x=Phase,y=pred),shape=21,colour="black",fill="black",size=3)
+p3<-p2+geom_segment(data=g.pframe2,aes(x=Phase,xend=Phase,y=conf.low,yend=conf.high),colour="black",size=1)
+p4<-p3+scale_x_discrete(breaks=c("1", "2"),
+                        labels=c("PRA", "ERS"))
+p6<-p4+theme(axis.ticks.x=element_blank(),axis.line.y= element_line(colour = "black"))
+p7<-p6+labs(x = "Survey method",y="Probability of presence")
+p8<-p7+annotate("text", x = 0.5, y = 0.97, label = "(a)",fontface="italic",size=4)
+p9<-p8 + theme(axis.title.y = element_text(size=12))+theme(axis.title.x = element_text(size=12))+
+  theme(axis.text = element_text(size=10))+theme(axis.title=element_text(margin=margin(5,5,0,0)))
+p10<-p9+scale_y_continuous(limits = c(0, 1),expand=c(0,0))
+p10
+
+
 ######################################################################################################################
 
 #####################    Comparison: P/A Pipistrelle bat Phase 1 vs Phase 2   #######################################
@@ -162,6 +256,31 @@ M1<-glmer(PApip~Phase+(1|County/lpa/BuildingID),family="binomial",data=pip)
 M0<-glmer(PApip~1+(1|County/lpa/BuildingID),family="binomial",data=pip)
 AIC(M1,M0)
 summary(M1)
+
+#/////////////////////////////
+#   III. Draw the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+M1<-glmer(PApip~Phase+(1|County/lpa/BuildingID),family="binomial",data=pip)
+new.dat<-data.frame(Phase=pip$Phase,County=pip$County,lpa=pip$lpa,BuildingID=pip$BuildingID)
+new.dat$pred<-predict(M1,newdata=new.dat,re.form=NA,type="response")
+
+predCI<-easyPredCI(M1,newdata=new.dat)
+new.dat2<-new.dat[-5]
+g.pframe2<-cbind(new.dat2,pred=new.dat$pred,predCI)
+
+p1<-ggplot()
+p2<-p1+geom_point(data=g.pframe2,aes(x=Phase,y=pred),shape=21,colour="black",fill="black",size=3)
+p3<-p2+geom_segment(data=g.pframe2,aes(x=Phase,xend=Phase,y=conf.low,yend=conf.high),colour="black",size=1)
+p4<-p3+scale_x_discrete(breaks=c("1", "2"),
+                        labels=c("PRA", "ERS"))
+p6<-p4+theme(axis.ticks.x=element_blank(),axis.line.y= element_line(colour = "black"))
+p7<-p6+labs(x = "Survey method",y="Probability of presence")
+p8<-p7+annotate("text", x = 0.5, y = 0.97, label = "(a)",fontface="italic",size=4)
+p9<-p8 + theme(axis.title.y = element_text(size=12))+theme(axis.title.x = element_text(size=12))+
+  theme(axis.text = element_text(size=10))+theme(axis.title=element_text(margin=margin(5,5,0,0)))
+p10<-p9+scale_y_continuous(limits = c(0, 1),expand=c(0,0))
+p10
 
 
 ######################################################################################################################
@@ -192,6 +311,81 @@ M1<-glmer(Paplec~Phase+(1|County/lpa/BuildingID),family="binomial",data=plec)
 M0<-glmer(Paplec~1+(1|County/lpa/BuildingID),family="binomial",data=plec)
 AIC(M0,M1)
 summary(M1)
+
+
+#/////////////////////////////
+#   III. Draw the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+M1<-glmer(Paplec~Phase+(1|County/lpa/BuildingID),family="binomial",data=plec)
+new.dat<-data.frame(Phase=plec$Phase,County=plec$County,lpa=plec$lpa,BuildingID=plec$BuildingID)
+new.dat$pred<-predict(M1,newdata=new.dat,re.form=NA,type="response")
+
+predCI<-easyPredCI(M1,newdata=new.dat)
+new.dat2<-new.dat[-5]
+g.pframe2<-cbind(new.dat2,pred=new.dat$pred,predCI)
+
+p1<-ggplot()
+p2<-p1+geom_point(data=g.pframe2,aes(x=Phase,y=pred),shape=21,colour="black",fill="black",size=3)
+p3<-p2+geom_segment(data=g.pframe2,aes(x=Phase,xend=Phase,y=conf.low,yend=conf.high),colour="black",size=1)
+p4<-p3+scale_x_discrete(breaks=c("1", "2"),
+                        labels=c("PRA", "ERS"))
+p6<-p4+theme(axis.ticks.x=element_blank(),axis.line.y= element_line(colour = "black"))
+p7<-p6+labs(x = "Survey method",y="Probability of presence")
+p8<-p7+annotate("text", x = 0.5, y = 0.97, label = "(a)",fontface="italic",size=4)
+p9<-p8 + theme(axis.title.y = element_text(size=12))+theme(axis.title.x = element_text(size=12))+
+  theme(axis.text = element_text(size=10))+theme(axis.title=element_text(margin=margin(5,5,0,0)))
+p10<-p9+scale_y_continuous(limits = c(0, 1),expand=c(0,0))
+p10
+
+
+
+
+######################################################################################################################
+
+#####################    Graph probability of presence of bats   #########################################
+
+######################################################################################################################
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+prob<- read.table("probpres.txt",header=TRUE,sep="\t",dec=".")
+
+#/////////////////////////////
+#   II. Draw the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+prob$Phase<-as.factor(prob$Phase)
+p1<-ggplot()
+p2<-p1+geom_segment(data=prob,aes(x=Phase,xend=Phase,y=conf.low,yend=conf.high),colour="black",size=0.5)
+p3<-p2+geom_point(data=prob,aes(x=Phase,y=pred,fill=Spec),shape=21,colour="black",size=1)
+p4<-p3+scale_x_discrete(breaks=c("1.1", "1.2","2.1","2.2","3.1","3.2"),
+                        labels=c("PRA", "ERS","PRA","ERS","PRA","ERS"))
+p4<-p4+scale_fill_manual(name="", values = c("All"="grey","Pip"="white","Plec"="black"))
+p5<-p4+geom_segment(data=prob,aes(x=2.5,xend=2.5,y=0,yend=1),colour="black",lty="dotted",size=1)+
+  geom_segment(data=prob,aes(x=4.5,xend=4.5,y=0,yend=1),colour="black",lty="dotted",size=1)
+p6<-p5+theme(axis.ticks.x=element_blank(),axis.line.y= element_line(colour = "black"))
+p7<-p6+labs(x = "Survey method",y="Probability of discovering a bat roost")
+p9<-p7 + theme(axis.title.y = element_text(size=8))+theme(axis.title.x = element_text(size=8))+
+  theme(axis.text.x = element_text(size=6))+ theme(axis.text.y = element_text(size=7))+
+  theme(axis.title=element_text(margin=margin(5,5,0,0)))
+p10<-p9+scale_y_continuous(limits = c(0, 1),expand=c(0,0),breaks=c(0,0.2,0.4,0.6,0.8,1))
+p11<-p10+theme(legend.position="none")
+p11
+ggsave("C:/Users/Jeremy/Desktop/Bats_PA.tiff", plot = last_plot(), 
+       scale = 1, width = par("din")[1], height = par("din")[2], units = c("in", "cm", "mm"), dpi = 500, limitsize = TRUE)
+
+#If we want to add the labels
+p8<-p7+annotate("text", x = 0.6, y = 0.985, label = "(a)",fontface="italic",size=3)+
+  annotate("text", x = 2.7, y = 0.985, label = "(b)",fontface="italic",size=3)+
+  annotate("text", x = 4.7, y = 0.985, label = "(c)",fontface="italic",size=3)
+
+
 
 ######################################################################################################################
 
@@ -247,6 +441,37 @@ boxplot(richness~builtype,data=bat,ylab="Species richness",xlab="Building type")
 
 ######################################################################################################################
 
+#####################    Phase 2: Factors affecting bat RICHNESS | Bat Present   #########################################
+
+######################################################################################################################
+
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+bat<- read.table("speciesPh2.txt",header=TRUE,sep="\t",dec=".")
+bat1<-subset(bat,BatPresPh2=="1")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+bat1$BuildingID<-as.factor(bat1$BuildingID)
+
+#Check if there is overdispersion; it looks OK
+M1<-glmer(richness~1+(1|county/lpa/BuildingID),family="poisson",data=bat1)
+overdisp.glmer(M1)
+
+#None of the variables is significant
+
+
+######################################################################################################################
+
 #####################    Phase 2: Factors affecting bat PRESENCE  | ALL dataset  #########################################
 
 ######################################################################################################################
@@ -277,6 +502,35 @@ M5<-glmer(PA~surveyors+(1|county/lpa/BuildingID),family="binomial",data=bat,na.a
 candidates<-model.sel(M2,M3,M4,M5)
 model.sel(candidates,rank=AIC)
 summary(M2)
+
+######################################################################################################################
+
+#####################    Phase 2: Factors affecting bat PRESENCE  | Bat Present  #########################################
+
+######################################################################################################################
+
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+bat<- read.table("speciesPh2.txt",header=TRUE,sep="\t",dec=".")
+bat1<-subset(bat,BatPresPh2=="1")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+bat$BuildingID<-as.factor(bat$BuildingID)
+
+M1<-glmer(PA~surveyors+(1|county/lpa/BuildingID),family="binomial",data=bat1)
+summary(M1)
+#None of the variables is significant
+
 
 ######################################################################################################################
 
@@ -316,6 +570,44 @@ AIC(M1,M2,M3)
 
 ######################################################################################################################
 
+#####################    Phase 2: Factors affecting PIPISTRELLE PRESENCE  | PIP Present  #########################################
+
+######################################################################################################################
+
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+bat<- read.table("speciesPh2.txt",header=TRUE,sep="\t",dec=".")
+bat1<-subset(bat,PipPresPh2=="1")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+bat$BuildingID<-as.factor(bat$BuildingID)
+
+M2<-glmer(PApip~1+(1|county/lpa/BuildingID),family="binomial",data=bat1)
+summary(M1)
+
+candidates<-model.sel(M1,M2)
+model.sel(candidates,rank=AIC)
+summary(M3)
+
+
+summary(glht(M3, mcp(builtype="Tukey")))
+
+AIC(M1,M2,M3)
+
+#None of the variables is significant
+
+######################################################################################################################
+
 #####################    Phase 2: Factors affecting PLECOTUS PRESENCE  | ALL dataset  #############################
 
 ######################################################################################################################
@@ -345,3 +637,66 @@ M3<-glmer(PAplec~wind+(1|county/lpa/BuildingID),family="binomial",data=bat,na.ac
 summary(M3)
 
 AIC(M2,M3)
+
+
+######################################################################################################################
+
+#####################    Phase 2: Factors affecting PLECOTUS PRESENCE  | PLEC Present  #########################################
+
+######################################################################################################################
+
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+bat<- read.table("speciesPh2.txt",header=TRUE,sep="\t",dec=".")
+bat1<-subset(bat,PlecPresPh2=="1")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+bat$BuildingID<-as.factor(bat$BuildingID)
+
+M1<-glmer(PAplec~sampdur+(1|county/lpa/BuildingID),family="binomial",data=bat1)
+summary(M1)
+
+#None of the variables is significant
+
+
+
+######################################################################################################################
+
+#####################    Comparison: P/A Maternity    #######################################
+
+######################################################################################################################
+
+#////////////////////////
+#   I. Importing data
+#\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the directory
+setwd("C:/Users/Jeremy/Documents/BCT Internship/Roost survey/Stats")
+#Import txt file
+mat<- read.table("maternity.txt",header=TRUE,sep="\t",dec=".")
+
+#/////////////////////////////
+#   II. Test the Relationship
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+#Set the "phase" and the "buildingID" as factors
+mat$Phase<-as.factor(mat$Phase)
+mat$BuildingID<-as.factor(mat$Building)
+
+#Check if there is overdispersion; it looks OK
+M1<-glmer(PA~Phase+(1|County/LPA.1/BuildingID),family="binomial",data=mat)
+M0<-glmer(PA~1+(1|County/LPA.1/BuildingID),family="binomial",data=mat)
+AIC(M1,M0)
+summary(M1)
+
+
